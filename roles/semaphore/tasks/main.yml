@@ -4,7 +4,7 @@
   ansible.builtin.assert:
     that:
       - inventory_hostname in groups['servers'] or
-        inventory_hostname in groups['runners'] 
+        inventory_hostname in groups['runners']
     fail_msg: >-
       Host is neither in group 'servers' or 'runners'!
       Check the Collection README for more information.
@@ -39,4 +39,3 @@
     - "role::semaphore"
     - "role::semaphore:config"
     - "role::semaphore:config-runner"
-

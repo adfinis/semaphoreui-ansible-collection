@@ -72,7 +72,7 @@ semaphore_ssh_settings:
   - host: '*'
     settings:
       # Disable StrictHostKeyChecking to prevent jobs hanging on new server provisioning
-      StricHostKeyChecking: no
+      StricHostKeyChecking: "no"
       # Don't remember any host keys
       UserKnownHostsFile: /dev/null
 

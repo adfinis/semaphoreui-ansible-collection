@@ -98,13 +98,13 @@ argument_specs:
           Credentials will be stored in a .env file for Docker Compose.
         required: true
 
-     semaphore_admin_name:
-        description: Name for the Semaphore UI admin account.
-        default: "Admin"
+      semaphore_admin_name:
+         description: Name for the Semaphore UI admin account.
+         default: "Admin"
   
-     semaphore_admin_email:
-        description: E-Mail address for the Semaphore UI admin account.
-        default: "admin@localhost.local"
+      semaphore_admin_email:
+         description: E-Mail address for the Semaphore UI admin account.
+         default: "admin@localhost.local"
 
       semaphore_login_totp_enabled:
         description: "Enable TOTP (2FA) for login."
