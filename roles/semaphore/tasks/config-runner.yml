@@ -114,7 +114,6 @@
   loop: "{{ semaphore_runner_services }}"
   when:
     - item.dockerfile is defined
-  loop: "{{ semaphore_runner_services }}"
   notify: Restart Semaphore
 
 # Copy custom Dockerfiles files to Runner, if they have a src attribute

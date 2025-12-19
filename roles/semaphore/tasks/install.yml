@@ -23,6 +23,7 @@
     name: docker
     baseurl: "{{ semaphore_docker_rpm_repository }}"
     gpgkey: "{{ semaphore_docker_repository_key }}"
+    description: Docker RPM repository
     enabled: true
   notify: Dnf update cache
   when:
@@ -34,7 +35,7 @@
 
 - name: install | Docker packages
   ansible.builtin.package:
-    name: 
+    name:
       - docker-ce
       - docker-ce-cli
       - docker-buildx-plugin

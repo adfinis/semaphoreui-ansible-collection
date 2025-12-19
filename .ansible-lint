@@ -1,9 +1,8 @@
 ---
 
 skip_list:
-  - schema[galaxy]  # "adfinis.TEMPLATE" is an invalid name
+  - schema[galaxy]
   - meta-runtime[unsupported-version]
   - galaxy[version-incorrect]
   - galaxy[no-changelog]
   - yaml[line-length]
-
