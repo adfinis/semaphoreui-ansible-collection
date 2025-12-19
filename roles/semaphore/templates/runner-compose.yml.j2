@@ -1,0 +1,42 @@
+---
+{{ ansible_managed | comment }}
+
+services:
+{% for service in semaphore_runner_services %}
+{% if service.description is defined %}
+{{ service.description | comment }}
+{% endif %}
+  {{ service.name }}:
+    container_name: {{ service.name }}
+{% if service.dockerfile is defined %}
+    build:
+      context: {{ service.dockerfile.context | default(".") }}
+      dockerfile: {{ service.dockerfile.name }}
+{% elif semaphore_pro %}
+    image: public.ecr.aws/semaphore/pro/runner:v{{ service.version | default(semaphore_version) }}
+{% else %}
+    image: semaphoreui/runner:v{{ service.version | default(semaphore_version) }}
+{% endif %}
+    volumes:
+      - {{ semaphore_path }}/secrets/{{ service.name }}/runner.key:/etc/semaphore/runner.key:ro
+      - {{ semaphore_path }}/tmp/{{ service.name }}:/tmp/semaphore
+      - {{ semaphore_path }}/ssh/{{ service.name }}:/home/semaphore/.ssh
+{% if service.python_requirements | default(semaphore_runner_python_requirements) is defined and service.python_reuquirements | default(semaphore_runner_python_requirements) | length > 0 %}
+      - {{ semaphore_path }}/config/{{ service.name }}/requirements.txt:/etc/semaphore/requirements.txt
+{% endif %}
+    restart: always
+    environment:
+      SEMAPHORE_RUNNER_NAME: {{ service.name }}
+      SEMAPHORE_RUNNER_TOKEN: {{ service.token }}
+      SEMAPHORE_WEB_ROOT: {{ semaphore_url }}
+      SEMAPHORE_RUNNER_PRIVATE_KEY_FILE: /etc/semaphore/runner.key
+      SEMAPHORE_TMP_PATH: /tmp/semaphore
+{% if service.extra_envs is defined %}
+{% for key, value  in service.extra_envs.items() %}
+      {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+    entrypoint: ["/usr/local/bin/semaphore", "runner", "start", "--no-config"]
+    command: []
+
+{% endfor %}

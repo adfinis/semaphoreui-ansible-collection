@@ -1,0 +1,15 @@
+---
+
+# settings for DB container images
+semaphore_db_backends:
+  sqlite:
+
+  postgres:
+    port: "{{ semaphore_db_port | default(5432) }}"
+    env_prefix: POSTGRES
+    data_path: /var/lib/postgresql
+
+  mysql:
+    port: "{{ semaphore_db_port | default(3306) }}"
+    env_prefix: MYSQL
+    data_path: /var/lib/mysql

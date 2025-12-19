@@ -1,0 +1,42 @@
+---
+
+- name: Make sure target is in necessary host groups
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname in groups['servers'] or
+        inventory_hostname in groups['runners'] 
+    fail_msg: >-
+      Host is neither in group 'servers' or 'runners'!
+      Check the Collection README for more information.
+
+- name: Include OS-specific vars
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_facts.distribution }}_{{ ansible_facts.distribution_major_version }}.yml"
+    - "{{ ansible_facts.distribution }}.yml"
+    - "{{ ansible_facts.os_family }}.yml"
+    - main.yml # avoid error when no distro vars file is found
+  tags: always
+
+- name: Install Semaphore UI in Docker
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - "role::semaphore"
+    - "role::semaphore:install"
+
+- name: Configure Semaphore UI Server in Docker
+  ansible.builtin.import_tasks: config-server.yml
+  when: inventory_hostname in groups['servers']
+  tags:
+    - "role::semaphore"
+    - "role::semaphore:config"
+    - "role::semaphore:config-server"
+
+- name: Configure Semaphore UI Runner(s) in Docker
+  ansible.builtin.import_tasks: config-runner.yml
+  when: inventory_hostname in groups['runners']
+  tags:
+    - "role::semaphore"
+    - "role::semaphore:config"
+    - "role::semaphore:config-runner"
+

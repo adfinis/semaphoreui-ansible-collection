@@ -1,0 +1,13 @@
+{{ ansible_managed | comment }}
+{% if semaphore_email_sender is defined %}
+{
+    email {{ semaphore_email_sender }}
+}
+
+{% endif %}
+{{ semaphore_url }} {
+{% if semaphore_oidc_force_provider is defined %}
+    redir /auth/login /api/auth/oidc/{{ semaphore_oidc_force_provider }}/login
+{% endif %}
+    reverse_proxy semaphore:{{ semaphore_port }}
+}

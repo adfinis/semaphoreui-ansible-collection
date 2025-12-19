@@ -1,0 +1,108 @@
+---
+
+- name: config-server | Create Semaphore directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0755"
+  loop:
+    - "{{ semaphore_path }}"
+    - "{{ semaphore_path }}/data"
+    - "{{ semaphore_path }}/data/semaphore"
+    - "{{ semaphore_path }}/config"
+    - "{{ semaphore_path }}/config/ssh"
+    - "{{ semaphore_path }}/tmp"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: config-server | Create data directory for DB backend
+  ansible.builtin.file:
+    path: "{{ semaphore_path }}/data/{{ semaphore_db_backend }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - semaphore_db_backend != "sqlite"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: config-server | Create SSH config for Semaphore
+  ansible.builtin.template:
+    src: templates/ssh.config.j2
+    dest: "{{ semaphore_path }}/config/ssh/config"
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0640"
+  vars:
+    _ssh_settings: "{{ semaphore_ssh_settings }}"
+
+- name: config-server | Create Python requirements.txt
+  ansible.builtin.template:
+    src: templates/requirements.txt.j2
+    dest: "{{ semaphore_path }}/config/requirements.txt"
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0640"
+  when:
+    - semaphore_python_requirements is defined
+    - semaphore_python_requirements | length > 0
+  vars:
+    _python_requirements: "{{ semaphore_python_requirements }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  notify: Restart Semaphore
+
+- name: config-server | Setup compose for Semaphore
+  ansible.builtin.template:
+    src: templates/server-compose.yml.j2
+    dest: "{{ semaphore_path }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+    backup: true
+  ignore_errors: "{{ ansible_check_mode }}"
+  notify: Restart Semaphore
+
+- name: config-server | Write credentials to .env file
+  ansible.builtin.template:
+    src: templates/env.j2
+    dest: "{{ semaphore_path }}/.env"
+    owner: root
+    group: root
+    mode: "0640"
+  ignore_errors: "{{ ansible_check_mode }}"
+  notify: Restart Semaphore
+
+- name: config-server | Create Caddy directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ semaphore_path }}/data/caddy"
+    - "{{ semaphore_path }}/config/caddy"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - semaphore_use_caddy # default: false
+
+- name: config-server | Deploy Caddy config
+  ansible.builtin.template:
+    src: templates/Caddyfile.j2
+    dest: "{{ semaphore_path }}/config/caddy/Caddyfile"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Semaphore
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - semaphore_use_caddy # default: false
+
+- name: config-server | Start Semaphore UI stack via Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ semaphore_path }}"
+    state: present
+    pull: always
+    remove_orphans: true
+  ignore_errors: "{{ ansible_check_mode }}"

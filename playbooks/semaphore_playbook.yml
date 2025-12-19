@@ -1,0 +1,7 @@
+---
+
+- name: Run adfinis.semaphoreui.semaphore role to setup Server and Runners
+  hosts: all
+  become: true
+  roles:
+    - role: semaphore

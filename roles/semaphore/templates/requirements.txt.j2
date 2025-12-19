@@ -1,0 +1,6 @@
+{{ ansible_managed | comment }}
+
+{% for requirement in _python_requirements %}
+{{ requirement.name }}{% if requirement.version is defined %} == {{ requirement.version }}{% endif %}
+
+{% endfor %}

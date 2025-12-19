@@ -1,0 +1,32 @@
+{{ ansible_managed | comment }}
+FROM semaphoreui/runner:v{{ semaphore_version }} AS builder
+
+FROM python:{{ item.dockerfile.python_version }}-slim-bookworm
+
+# Environment Variables to prevent Python form writing .pyc files
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    sshpass \
+    openssh-client \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Ansible
+RUN pip install --no-cache-dir ansible-core=={{ item.dockerfile.ansible_version }}
+
+COPY --from=builder /usr/local/bin/semaphore /usr/local/bin/semaphore
+
+# Create semaphore user to avoid running as root
+RUN addgroup --gid {{ semaphore_gid }} semaphore \
+    && adduser --uid {{ semaphore_uid }} --gid {{ semaphore_gid }} --disabled-password --gecos "" semaphore
+
+USER semaphore
+WORKDIR /home/semaphore
+
+# Config options need to be parsed as environment variables
+CMD ["/usr/local/bin/semaphore", "runner", "start", "--no-config"]

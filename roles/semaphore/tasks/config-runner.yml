@@ -1,0 +1,151 @@
+---
+
+- name: config-runner | Verify that Runner tokens and private keys exist
+  ansible.builtin.assert:
+    that:
+      - item.token is defined
+      - item.private_key_content is defined or
+        item.private_key_src is defined
+    fail_msg: |-
+      The necessary variables in 'semaphore_runners' are missing!
+      Each runner needs a token and a private key ('private_key_content' or 'private_key_src').
+      These are required for the Runner registration to work!
+      To get those, go to the WebUI and navigate to the following:
+        Dashboard > Runners > NEW RUNNER (Project Runners, only available in Semaphore UI Pro)
+        Account > Runners > NEW RUNNER (System Runners)
+  loop: "{{ semaphore_runner_services }}"
+  no_log: true
+
+- name: config-runner | Create Semaphore directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0751"
+  loop:
+    - "{{ semaphore_path }}"
+    - "{{ semaphore_path }}/config"
+    - "{{ semaphore_path }}/ssh"
+    - "{{ semaphore_path }}/secrets"
+    - "{{ semaphore_path }}/tmp"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: config-runner | Create individual sub-paths for Runners
+  ansible.builtin.file:
+    path: "{{ semaphore_path }}/{{ item.1 }}/{{ item.0.name }}"
+    state: directory
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0751"
+  # nested loop to create each path (product) for each runner_service
+  loop: "{{ semaphore_runner_services | product(['config', 'ssh', 'tmp', 'secrets']) | list }}"
+  loop_control:
+    label: "{{ item.1 }}/{{ item.0.name }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: config-runner | Create SSH configs for Runners
+  ansible.builtin.template:
+    src: templates/ssh.config.j2
+    dest: "{{ semaphore_path }}/ssh/{{ item.name }}/config"
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0640"
+  loop: "{{ semaphore_runner_services }}"
+  vars:
+    _ssh_settings: "{{ semaphore_runner_ssh_settings }}"
+
+- name: config-runner | Create Python requirements.txt for Runners
+  ansible.builtin.template:
+    src: templates/requirements.txt.j2
+    dest: "{{ semaphore_path }}/config/{{ item.name }}/requirements.txt"
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0640"
+  when:
+    - _python_requirements is defined
+    - _python_requirements | length > 0
+  loop: "{{ semaphore_runner_services }}"
+  vars:
+    _python_requirements: "{{ item.python_requirements | default(semaphore_runner_python_requirements) }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  notify: Restart Semaphore
+
+# If the key(s) should be deployed from content (string)
+- name: config-runner | Deploy Runner private key(s) (content)
+  ansible.builtin.copy:
+    dest: "{{ semaphore_path }}/secrets/{{ item.name }}/runner.key"
+    content: "{{ item.private_key_content }}"
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0600"
+    backup: true
+  no_log: true
+  when:
+    - item.private_key_content is defined
+  loop: "{{ semaphore_runner_services }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  notify: Restart Semaphore
+
+# If the key(s) should be deployed as file, rather than from content
+- name: config-runner | Deploy Runner private key(s) (file)
+  ansible.builtin.copy:
+    src: "{{ item.private_key_src }}"
+    dest: "{{ semaphore_path }}/secrets/{{ item.name }}/runner.key"
+    owner: "{{ semaphore_uid }}"
+    group: "{{ semaphore_gid }}"
+    mode: "0600"
+    backup: true
+  no_log: true
+  when:
+    - item.private_key_src is defined
+  loop: "{{ semaphore_runner_services }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  notify: Restart Semaphore
+
+# Create Dockerfiles based on template to create containers with different Ansible versions
+- name: config-runner | Generate custom dynamic Dockerfiles
+  ansible.builtin.template:
+    src: templates/Dockerfile.j2
+    dest: "{{ semaphore_path }}/{{ item.dockerfile.context | default(omit) }}/{{ item.dockerfile.name }}"
+    owner: root
+    group: root
+    mode: "0640"
+  loop: "{{ semaphore_runner_services }}"
+  when:
+    - item.dockerfile is defined
+  loop: "{{ semaphore_runner_services }}"
+  notify: Restart Semaphore
+
+# Copy custom Dockerfiles files to Runner, if they have a src attribute
+- name: config-runner | Deploy custom Dockerfiles
+  ansible.builtin.copy:
+    src: "{{ item.dockerfile.src }}"
+    dest: "{{ semaphore_path }}/{{ item.dockerfile.context | default(omit) }}/{{ item.dockerfile.name }}"
+    owner: root
+    group: root
+    mode: "0640"
+  loop: "{{ semaphore_runner_services }}"
+  when:
+    - item.dockerfile is defined
+    - item.dockerfile.src is defined
+  notify: Restart Semaphore
+
+- name: config-runner | Setup compose for Semaphore
+  ansible.builtin.template:
+    src: templates/runner-compose.yml.j2
+    dest: "{{ semaphore_path }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+    backup: true
+  ignore_errors: "{{ ansible_check_mode }}"
+  notify: Restart Semaphore
+
+- name: config-runner | Start Semaphore UI Runner stack via Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ semaphore_path }}"
+    state: present
+    pull: always
+    remove_orphans: true
+  ignore_errors: "{{ ansible_check_mode }}"

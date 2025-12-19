@@ -1,0 +1,16 @@
+---
+
+- name: Apt update
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Dnf update cache
+  ansible.builtin.dnf:
+    update_cache: true
+
+# Works for both server and runners
+- name: Restart Semaphore
+  community.docker.docker_compose_v2:
+    project_src: /opt/semaphore
+    state: restarted
+    remove_orphans: true

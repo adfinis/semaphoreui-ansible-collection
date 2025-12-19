@@ -1,0 +1,51 @@
+---
+
+- name: install | Install Docker dependencies
+  ansible.builtin.package:
+    name: "{{ semaphore_dependencies }}"
+    state: present
+
+- name: install | Setup Docker repository (deb)
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: "{{ semaphore_docker_deb_repository }}"
+    suites: "{{ ansible_facts.distribution_release }}"
+    components: stable
+    signed_by: "{{ semaphore_docker_repository_key }}"
+    state: present
+  notify: Apt update
+  when:
+    - ansible_os_family == "Debian"
+
+- name: install | Setup Docker repository (rpm)
+  ansible.builtin.yum_repository:
+    name: docker
+    baseurl: "{{ semaphore_docker_rpm_repository }}"
+    gpgkey: "{{ semaphore_docker_repository_key }}"
+    enabled: true
+  notify: Dnf update cache
+  when:
+    - ansible_os_family == "RedHat"
+
+# make Docker repository available
+- name: install | Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: install | Docker packages
+  ansible.builtin.package:
+    name: 
+      - docker-ce
+      - docker-ce-cli
+      - docker-buildx-plugin
+      - docker-compose-plugin
+      - containerd.io
+    state: present
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: install | Start and enable Docker service
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+  ignore_errors: "{{ ansible_check_mode }}"

@@ -1,0 +1,91 @@
+---
+
+##
+# general settings
+
+semaphore_timezone: UTC
+semaphore_git_client: go_git
+
+# when caddy is enabled as reverse proxy, this port is NOT exposed
+semaphore_port: 3000
+
+# if Semaphore UI Pro version should be used (requires license)
+semaphore_pro: false
+
+sempahore_db_backend: sqlite
+# these vars are only used when backend is not set to 'sqlite'
+semaphore_db_host: postgres
+semaphore_db_port: 5432
+semaphore_db_name: semaphore
+semaphore_db_user: semaphore
+
+# semaphore_address needs to be defined and has no default value
+semaphore_url: "https://{{ semaphore_address }}"
+
+# login
+
+# semaphore_admin_username and semaphore_admin_password need to be defined
+# and don't have a default value
+semaphore_admin_name: Admin
+semaphore_admin_email: "admin@localhost.local"
+
+semaphore_login_totp_enabled: false
+semaphore_login_totp_allow_recovery: false
+
+# oidc
+# can use full yaml syntax here, will be passed through to_json
+semaphore_oidc_providers: ""
+
+# persistent encryption secrets
+semaphore_cookie_hash: "{{ lookup('ansible.builtin.password', '/dev/null', seed=hostvars[groups['servers'][0]].inventory_hostname + 'cookie_hash', length=32, chars='ascii_letters') | b64encode }}"
+semaphore_cookie_encryption: "{{ lookup('ansible.builtin.password', '/dev/null', seed=hostvars[groups['servers'][0]].inventory_hostname + 'cookie_encryption', length=32, chars='ascii_letters') | b64encode }}"
+semaphore_access_key_encryption: "{{ lookup('ansible.builtin.password', '/dev/null', seed=hostvars[groups['servers'][0]].inventory_hostname + 'access_key_encryption', length=32, chars='ascii_letters') | b64encode }}"
+
+##
+# Docker settings
+
+# The URI for Docker
+semaphore_docker_repository_base: "https://download.docker.com/linux/"
+semaphore_docker_repository_key: "{{ semaphore_docker_repository_base }}{{ ansible_facts.distribution | lower }}/gpg"
+semaphore_docker_deb_repository: "{{ semaphore_docker_repository_base }}{{ ansible_facts.distribution | lower }}"
+semaphore_docker_rpm_repository: "{{ semaphore_docker_repository_base }}{{ ansible_facts.distribution | lower }}//$releasever/$basearch/stable"
+
+# will be created on machine and be used to store everything
+# (Docker Compose, configs, volumes, etc.)
+semaphore_path: /opt/semaphore
+
+# Will setup Caddy container as reverse proxy with Let's Encrypt for HTTPS
+semaphore_use_caddy: false
+# these vars are only used when caddy is enabled
+semaphore_caddy_http_port: 80
+semaphore_caddy_https_port: 443
+
+# UID/GID that are used in the Semaphore containers
+# 1001 is the default by Semaphore
+semaphore_uid: 1001
+semaphore_gid: 1001
+
+semaphore_extra_envs:
+  SEMAPHORE_DB_OPTIONS: '"{\"sslmode\":\"disable\"}"'
+
+semaphore_ssh_settings:
+  - host: '*'
+    settings:
+      # Disable StrictHostKeyChecking to prevent jobs hanging on new server provisioning
+      StricHostKeyChecking: no
+      # Don't remember any host keys
+      UserKnownHostsFile: /dev/null
+
+# Use the same SSH settings on Runners too
+semaphore_runner_ssh_settings: "{{ semaphore_ssh_settings }}"
+
+semaphore_python_requirements: []
+# Use the same Pythong packages on Runners too
+semaphore_runner_python_requirements: "{{ semaphore_python_requirements }}"
+
+semaphore_email_alert: false
+# these vars are only used when email_alert is enabled
+semaphore_email_port: 25
+semaphore_email_secure: false
+semaphore_email_tls: false
+semaphore_email_tls_min_version: false

@@ -1,0 +1,7 @@
+---
+
+semaphore_dependencies:
+  - ca-certificates
+  - curl
+  - python3-debian # ansible.builtin.deb822_repository
+  - python3-docker # community.docker

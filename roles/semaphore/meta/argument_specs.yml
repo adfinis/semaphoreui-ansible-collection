@@ -1,0 +1,267 @@
+---
+
+argument_specs:
+  main:
+    short_description: "Configuration for Semaphore UI Docker deployment"
+    description: >-
+      Deploys Semaphore UI using Docker Compose, with optional Caddy reverse proxy,
+      Runner configuration and external database backend support.
+    options:
+
+      # -----------------------------------------------------------------------
+      # General Settings
+      # -----------------------------------------------------------------------
+      semaphore_timezone:
+        description: "Timezone for the Semaphore server."
+        default: "UTC"
+        type: str
+
+      semaphore_git_client:
+        description: "Git client implementation to use ('go_git' or 'cmd_git')."
+        default: "go_git"
+        type: str
+
+      semaphore_port:
+        description: "Port for Semaphore UI. If Caddy is enabled, this port is NOT exposed externally."
+        default: 3000
+        type: int
+
+      semaphore_pro:
+        description: "Enable Semaphore UI Pro features (requires license)."
+        default: false
+        type: bool
+
+      semaphore_address:
+        description: "Public domain or IP address for the Semaphore instance. Required."
+        type: str
+        required: true
+
+      semaphore_url:
+        description: "Full URL for Semaphore (auto-generated from semaphore_address if not overridden)."
+        default: "https://{{ semaphore_address }}"
+        type: str
+
+      # -----------------------------------------------------------------------
+      # Database Settings
+      # -----------------------------------------------------------------------
+      sempahore_db_backend:
+        description: "Database backend ('sqlite', 'postgres', or 'mysql')."
+        default: "sqlite"
+        type: str
+        choices:
+          - "sqlite"
+          - "postgres"
+          - "mysql"
+
+      semaphore_db_host:
+        description: "Database hostname (used if backend is not sqlite)."
+        default: "postgres"
+        type: str
+
+      semaphore_db_port:
+        description: "Database port. (required if backend is not sqlite)."
+        default: 5432
+        type: int
+
+      semaphore_db_name:
+        description: "Database name. (required if backend is not sqlite)."
+        default: "semaphore"
+        type: str
+
+      semaphore_db_user:
+        description: "Database user (required if backend is not sqlite)."
+        default: "semaphore"
+        type: str
+
+      semaphore_db_pass:
+        description: "Database password (required if backend is not sqlite)."
+        type: str
+
+      # -----------------------------------------------------------------------
+      # Login & Security
+      # -----------------------------------------------------------------------
+      semaphore_admin_username:
+        description: >-
+          Username for the Semaphore UI admin account.
+          Preferably fetched from an external secrets provider like Hashicorp Vault or OpenBao,
+          or stored locally in ansible-vault.
+          Credentials will be stored in a .env file for Docker Compose.
+        type: str
+        required: true
+
+      semaphore_admin_password:
+        type: str
+        description: >-
+          Password for the Semaphore UI admin account.
+          Preferably fetched from an external secrets provider like Hashicorp Vault or OpenBao,
+          or stored locally in ansible-vault.
+          Credentials will be stored in a .env file for Docker Compose.
+        required: true
+
+     semaphore_admin_name:
+        description: Name for the Semaphore UI admin account.
+        default: "Admin"
+  
+     semaphore_admin_email:
+        description: E-Mail address for the Semaphore UI admin account.
+        default: "admin@localhost.local"
+
+      semaphore_login_totp_enabled:
+        description: "Enable TOTP (2FA) for login."
+        default: false
+        type: bool
+
+      semaphore_login_totp_allow_recovery:
+        description: "Allow TOTP recovery codes."
+        default: false
+        type: bool
+
+      semaphore_oidc_providers:
+        description: "OIDC Providers configuration (YAML string or dict)."
+        default: ""
+        type: raw # Can be string or dict
+
+      # Encryption Secrets (Usually auto-generated, but can be overridden)
+      semaphore_cookie_hash:
+        description: "Secret for cookie hashing. Auto-generated with persistent seed."
+        type: str
+        default: "{{ lookup('ansible.builtin.password', '/dev/null', seed=hostvars[groups['servers'][0]].inventory_hostname + 'cookie_hash', length=32, chars='ascii_letters') | b64encode }}"
+
+      semaphore_cookie_encryption:
+        description: "Secret for cookie encryption. Auto-generated with persistent seed."
+        type: str
+        default: "{{ lookup('ansible.builtin.password', '/dev/null', seed=hostvars[groups['servers'][0]].inventory_hostname + 'cookie_encryption', length=32, chars='ascii_letters') | b64encode }}"
+
+      semaphore_access_key_encryption:
+        description: "Secret for access key encryption. Auto-generated with persistent seed."
+        type: str
+        default: "{{ lookup('ansible.builtin.password', '/dev/null', seed=hostvars[groups['servers'][0]].inventory_hostname + 'access_key_encryption', length=32, chars='ascii_letters') | b64encode }}"
+
+      # -----------------------------------------------------------------------
+      # System & Docker
+      # -----------------------------------------------------------------------
+      semaphore_path:
+        description: "Base directory on the server for Semaphore config and data."
+        default: "/opt/semaphore"
+        type: str
+
+      semaphore_uid:
+        description: "UID for the Semaphore user inside the container."
+        default: 1001
+        type: int
+
+      semaphore_gid:
+        description: "GID for the Semaphore user inside the container."
+        default: 1001
+        type: int
+
+      semaphore_docker_repository_base:
+        description: "Base URL for Docker repository."
+        default: "https://download.docker.com/linux/"
+        type: str
+
+      semaphore_docker_repository_key:
+        description: "URL for the Docker repository GPG key."
+        type: str
+
+      semaphore_docker_deb_repository:
+        description: "Repository string for Debian/Ubuntu Docker installation."
+        type: str
+
+      semaphore_docker_rpm_repository:
+        description: "Repository string for RHEL/CentOS Docker installation."
+        type: str
+
+      semaphore_extra_envs:
+        description: "Dictionary of additional environment variables for the Semaphore container."
+        type: dict
+        default:
+          SEMAPHORE_DB_OPTIONS: '"{\"sslmode\":\"disable\"}"'
+
+      # -----------------------------------------------------------------------
+      # Reverse Proxy (Caddy)
+      # -----------------------------------------------------------------------
+      semaphore_use_caddy:
+        description: "Enable Caddy as a reverse proxy with auto-HTTPS."
+        default: false
+        type: bool
+
+      semaphore_caddy_http_port:
+        description: "External HTTP port for Caddy."
+        default: 80
+        type: int
+
+      semaphore_caddy_https_port:
+        description: "External HTTPS port for Caddy."
+        default: 443
+        type: int
+
+      # -----------------------------------------------------------------------
+      # SSH & Python Dependencies
+      # -----------------------------------------------------------------------
+      semaphore_ssh_settings:
+        description: "List of SSH configuration entries for ~/.ssh/config."
+        type: list
+        default:
+          - host: '*'
+            settings:
+              StricHostKeyChecking: no
+              UserKnownHostsFile: /dev/null
+
+      semaphore_runner_ssh_settings:
+        description: "SSH settings specifically for Runners (defaults to same as Server)."
+        type: list
+
+      semaphore_python_requirements:
+        description: "List of Python packages to install on the Server."
+        default: []
+        type: list
+
+      semaphore_runner_python_requirements:
+        description: "List of Python packages to install on Runners (defaults to same as Server)."
+        default: []
+        type: list
+
+      # -----------------------------------------------------------------------
+      # Email
+      # -----------------------------------------------------------------------
+      semaphore_email_alert:
+        description: "Enable email alerts."
+        default: false
+        type: bool
+
+      semaphore_email_host:
+        description: "SMTP host."
+        type: str
+
+      semaphore_email_sender:
+        description: "Email sender address."
+        type: str
+
+      semaphore_email_port:
+        description: "SMTP port."
+        default: 25
+        type: int
+
+      semaphore_email_username:
+        description: "SMTP username."
+        type: str
+
+      semaphore_email_password:
+        description: "SMTP password."
+        type: str
+
+      semaphore_email_secure:
+        description: "Use secure connection (STARTTLS)."
+        default: false
+        type: bool
+
+      semaphore_email_tls:
+        description: "Use TLS."
+        default: false
+        type: bool
+
+      semaphore_email_tls_min_version:
+        description: "Minimum TLS version for email (e.g. '1.2')."
+        default: false
+        type: raw # Can be bool or string

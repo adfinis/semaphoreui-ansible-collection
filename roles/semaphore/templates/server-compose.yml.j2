@@ -1,0 +1,114 @@
+---
+{{ ansible_managed | comment }}
+
+services:
+  semaphore:
+{% if semaphore_pro %}
+    image: public.ecr.aws/semaphore/pro/server:v{{ semaphore_version }}
+{% else %}
+    image: semaphoreui/semaphore:v{{ semaphore_version }}
+{% endif %}
+    container_name: semaphore
+{% if not semaphore_use_caddy %}
+    ports:
+      - {{ semaphore_port }}:3000
+{% endif %}
+    volumes:
+      - {{ semaphore_path }}/tmp:/tmp/semaphore
+      - {{ semaphore_path }}/data/semaphore:/var/lib/semaphore
+      - {{ semaphore_path }}/config/ssh:/home/semaphore/.ssh
+{% if semaphore_python_requirements is defined and semaphore_python_requirements | length > 0 %}
+      - {{ semaphore_path }}/config/requirements.txt:/etc/semaphore/requirements.txt
+{% endif %}
+
+    env_file:
+      - .env
+       
+    restart: always
+    environment:
+      SEMAPHORE_WEB_ROOT: "{{ semaphore_url }}"
+
+      SEMAPHORE_DB_DIALECT: "{{ semaphore_db_backend }}"
+{% if semaphore_db_backend != "sqlite" %}
+      SEMAPHORE_DB_NAME: "{{ semaphore_db_name }}"
+      SEMAPHORE_DB_HOST: "{{ semaphore_db_backend }}"
+      SEMAPHORE_DB_PORT: "{{ semaphore_db_port }}"
+      SEMAPHORE_DB_USER: "${SEMAPHORE_DB_USER}"
+      SEMAPHORE_DB_PASS: "${SEMAPHORE_DB_PASS}"
+{% endif %}
+{% if semaphore_admin_password is defined %}
+
+      SEMAPHORE_ADMIN: "${SEMAPHORE_ADMIN}"
+      SEMAPHORE_ADMIN_PASSWORD: "${SEMAPHORE_ADMIN_PASSWORD}"
+      SEMAPHORE_ADMIN_NAME: "${SEMAPHORE_ADMIN_NAME}"
+      SEMAPHORE_ADMIN_EMAIL: "${SEMAPHORE_ADMIN_EMAIL}"
+
+{% endif %}
+      SEMAPHORE_COOKIE_HASH: "${SEMAPHORE_COOKIE_HASH}"
+      SEMAPHORE_COOKIE_ENCRYPTION: "${SEMAPHORE_COOKIE_ENCRYPTION}"
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: "${SEMAPHORE_ACCESS_KEY_ENCRYPTION}"
+{% if semaphore_email_alert %}
+
+      SEMAPHORE_EMAIL_ALERT: "True"
+      SEMAPHORE_EMAIL_SENDER: "{{ semaphore_email_sender }}"
+      SEMAPHORE_EMAIL_HOST: "{{ semaphore_email_host }}"
+      SEMAPHORE_EMAIL_PORT: "{{ semaphore_email_port }}""
+      SEMAPHORE_EMAIL_USERNAME: "${SEMAPHORE_EMAIL_USER}"
+      SEMAPHORE_EMAIL_PASSWORD: "${SEMAPHORE_EMAIL_PASSWORD}"
+      SEMAPHORE_EMAIL_SECURE: {{ semaphore_email_secure | tenary("True", "False") }}
+      SEMAPHORE_EMAIL_TLS: {{ semaphore_email_tls | tenary("True", "False") }}
+      SEMAPHORE_EMAIL_TLS_MIN_VERSION: {{ semaphore_email_tls_min_version | tenary("True", "False") }}
+{% endif %}
+{% if semaphore_extra_envs is defined and semaphore_extra_envs | length > 0 %}
+
+{% for key, value  in semaphore_extra_envs.items() %}
+      {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+    networks:
+      - semaphore_network
+{% if semaphore_db_backend != "sqlite" %}
+
+    depends_on:
+      - {{ semaphore_db_backend }}
+
+  {{ semaphore_db_backend }}:
+    image: {{ semaphore_db_backend }}:{{ semaphore_db_version | default("latest") }}
+    container_name: semaphore-{{ semaphore_db_backend }}
+    # expose database ports to localhost to allow database backups
+    ports:
+      - "127.0.0.1:{{ semaphore_db_port }}:{{ semaphore_db_port }}"
+      - "[::1]:{{ semaphore_db_port }}:{{ semaphore_db_port }}"
+    environment:
+      {{ semaphore_db_backends[semaphore_db_backend].env_prefix }}_USER: ${SEMAPHORE_DB_USER}
+      {{ semaphore_db_backends[semaphore_db_backend].env_prefix }}_PASSWORD: ${SEMAPHORE_DB_PASS}
+      {{ semaphore_db_backends[semaphore_db_backend].env_prefix }}_DB: {{ semaphore_db_name }}
+    volumes:
+      - {{ semaphore_path }}/data/{{ semaphore_db_backend }}:{{ semaphore_db_backends[semaphore_db_backend].data_path }}
+    restart: always
+    networks:
+      - semaphore_network
+{% endif %}
+{% if semaphore_use_caddy %}
+
+  caddy:
+    image: caddy:alpine
+    container_name: semaphore-caddy
+    restart: always
+    ports:
+      - "{{ semaphore_caddy_http_port }}:80"
+      - "{{ semaphore_caddy_https_port}}:443"
+    volumes:
+      - {{ semaphore_path }}/config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - {{ semaphore_path }}/data/caddy:/data
+      - {{ semaphore_path }}/config/caddy:/config
+    depends_on:
+      - semaphore
+    networks:
+      - semaphore_network
+{% endif %}
+{% if semaphore_db_backend != "sqlite" or semaphore_use_caddy %}
+
+networks:
+  semaphore_network: {driver: "bridge"}
+{% endif %}
