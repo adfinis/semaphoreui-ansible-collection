@@ -25,6 +25,6 @@ jobs:
       - name: molecule
         uses: gofrolist/molecule-action@v2
         with:
-          molecule_working_dir: extensions
+          molecule_working_dir: "${{ github.repository }}/extensions"
         env:
           image: ${{ matrix.config.image }}
