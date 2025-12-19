@@ -1,34 +1,91 @@
-# Ansible Collection - adfinis.TEMPLATE
+# Ansible Collection - adfinis.semaphoreui
 
-![License](https://img.shields.io/github/license/adfinis/ansible-collection-TEMPLATE)
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/adfinis/ansible-collection-TEMPLATE/ansible-lint.yml)
-[![adfinis.TEMPLATE on Ansible Galaxy](https://img.shields.io/badge/collection-adfinis.TEMPLATE-blue)](https://galaxy.ansible.com/ui/repo/published/adfinis/TEMPLATE/)
+![License](https://img.shields.io/github/license/adfinis/semaphoreui-ansible-collection)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/adfinis/semaphoreui-ansible-collection/ansible-lint.yml)
+[![adfinis.semaphoreui on Ansible Galaxy](https://img.shields.io/badge/collection-adfinis.semaphore-blue)](https://galaxy.ansible.com/ui/repo/published/adfinis/semaphoreui/)
 
+Ansible Collection to manage and deploy Semaphore UI in Docker.
 
-This should serve as a TEMPLATE to create new collections.
+## Install
 
-A brief description of the collection goes here.
+The Collection can be installed from Ansible Galaxy:
+``` bash
+ansible-galaxy collection install adfinis.semaphoreui
+```
 
-To create a new repository from this template, follow the instructions at [Creating a repository from a template](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).  Afterwards, clone your newly created repository and do a `git grep TEMPLATE` to find all the places where changes are required.
-
-You can submit new releases of your collection to Ansible Galaxy simply by creating a git tag and pushing it to Github. The tag name must consist of `v` followed by a semver version number, e.g. `v1.0.0`.
+Alternatively put the collection into a `requirements.yml` file:
+``` yaml
+---
+collections:
+  - name: adfinis.semaphoreui
+```
 
 ## Roles
 
-Provide a short description of each role in your collection.  If your collection contains other artifacts such as playbooks or plugins, describe them as well.
+### `adfinis.semaphoreui.semaphore`
 
-### `adfinis.TEMPLATE.example_role`
+Ansible role to deploy and manage Semaphore UI servers and runners using Docker Compose.
+* Works with the free version of Semaphore UI and Semaphore UI Pro.
+* Optional Caddy reverse proxy for easy HTTPS
+* Supports multiple database backends (sqlite (default), postgres, mysql).
+* Ability to run different Ansible versions on the Semaphore UI Runner for backwards compatibility with older systems.
 
-A short description of example_role goes here, along with its options and a minimal usage example.
+#### Usage
+##### Inventory
 
+The Ansible role expect two host groups: `servers` (required!), `runners` (optional).
+The individual server and runner tasks are only applied to hosts in their relative host group.
+
+A simple example:
+
+**INI:**
+```ini
+[servers]
+vm-semaphore-server-01.example.com
+
+[runners]
+vm-semaphore-runner-01.example.com
+vm-semaphore-runner-02.example.com
+```
+
+**YAML:**
+``` yaml
+---
+servers:
+  hosts:
+    vm-semaphore-server-01.example.com:
+
+runners:
+  hosts:
+    vm-semaphore-runner-01.example.com:
+    vm-semaphore-runner-02.example.com:
+```
+
+##### Role variables
+
+All arguments can be found in `roles/semaphore/meta/arguments_specs.yml`. You can display them with `ansible-doc`:
+``` bash
+ansible-doc -t role adfinis.semaphoreui.semaphore
+```
+
+The following variables are required:
+* `semaphore_address`: Public domain or IP address for the Semaphore instance. 
+* `semaphore_admin_username`: Username for the Semaphore UI admin account.
+* `semaphore_admin_password`: Password for the Semaphore UI admin account.
+
+##### Playbook
+The Ansible Collection features a playbook to call the role `adfinis.semaphoreui.semaphore` without having to write one yourself:
+``` bash
+ansible-playbook adfinis.semaphoreui.semaphore_playbook
+```
 
 ## License
 
-[GPL-3.0-or-later](https://github.com/adfinis-sygroup/ansible-collection-TEMPLATE/blob/main/LICENSE)
+[GPL-3.0-or-later](https://github.com/adfinis/semaphoreui-ansible-collection/blob/main/LICENSE)
 
 ## Author Information
 
-The Ansible collection `adfinis.TEMPLATE` was written by:
+The Ansible collection `adfinis.semaphore` was written by:
 
 * Adfinis AG | [Website](https://www.adfinis.com/) | [GitHub](https://github.com/adfinis)
 
